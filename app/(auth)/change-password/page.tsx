@@ -1,0 +1,100 @@
+"use client";
+import ButtonElement from "@/components/Button";
+import InputElement from "@/components/Input";
+import { fetchApi } from "@/lib/fetchApi";
+import {
+  AlertStatus,
+  useAppendAlertToQueue,
+} from "@/providers/DashboardProvider";
+import Image from "next/image";
+import { FormEvent, useState } from "react";
+import z from "zod";
+
+type ForgotPassowrdFormFields = {
+  password: string[];
+};
+
+const changePasswordSchema = z.object({
+  password: z.string().min(6, "Password cannot be smaller that 6 characters."),
+});
+
+export default function ChangePasswordPage({ searchParams }: any) {
+  const appendAlertToQueue = useAppendAlertToQueue();
+  const [formErrors, setFormErrors] = useState<ForgotPassowrdFormFields>();
+
+  const changePassword = async function (newPassword: string) {
+    const request = await fetchApi(
+      "/api/auth/reset-password",
+      {},
+      {
+        newPassword,
+        token: searchParams?.token,
+      },
+    );
+
+    if (request?.data) {
+      appendAlertToQueue(
+        request.data?.message,
+        request.status === "OK" ? AlertStatus.Success : AlertStatus.Error,
+      );
+    }
+  };
+
+  const onFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFormErrors(undefined);
+
+    try {
+      const formField = (name: string) =>
+        (
+          event.currentTarget.elements.namedItem(
+            name,
+          ) as HTMLInputElement | null
+        )?.value;
+
+      const { password } = changePasswordSchema.parse({
+        password: formField("password"),
+      });
+
+      changePassword(password);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        setFormErrors(error.flatten().fieldErrors as ForgotPassowrdFormFields);
+      }
+    }
+  };
+
+  return (
+    <main className="grid h-screen w-screen grid-cols-1 grid-rows-2 overflow-hidden md:grid-cols-2 md:grid-rows-1">
+      <div className="grid h-full w-full place-items-center bg-smawad-secondary">
+        <Image
+          priority
+          width={244}
+          height={154}
+          src={"/images/logo.webp"}
+          alt="Smart Automotors Logo"
+        />
+      </div>
+      <div className="grid place-items-center">
+        <div className="flex w-full flex-col gap-8 p-4">
+          <div className="text-center">
+            <h2 className="text-xl font-bold">Change Password</h2>
+          </div>
+          <form
+            className="mx-auto flex w-full max-w-xl  flex-col gap-3 rounded p-4"
+            onSubmit={onFormSubmit}
+          >
+            <InputElement
+              type="password"
+              name="password"
+              label="Password"
+              error={formErrors?.password}
+            />
+
+            <ButtonElement role="submit">Change Password</ButtonElement>
+          </form>
+        </div>
+      </div>
+    </main>
+  );
+}

@@ -1,0 +1,33 @@
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply h-screen w-screen overflow-hidden;
+}
+
+table {
+  @apply border;
+}
+
+table th,
+table td {
+  @apply border p-3 px-4 text-sm;
+}
+
+table button[role="checkbox"] {
+  @apply scale-75 rounded-none data-[state="checked"]:border-smawad-accent data-[state="checked"]:bg-smawad-accent;
+}
+
+.data-cell-wrapper {
+  @apply grid place-items-center;
+}
+
+section button,
+button.default {
+  @apply flex items-center justify-center gap-3 rounded border p-3;
+}
+
+.action-button {
+  @apply border-none bg-smawad-accent text-white;
+}
