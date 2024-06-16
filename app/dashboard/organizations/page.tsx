@@ -548,7 +548,9 @@ export default function OrganizationsListPage(props: any) {
                       type="checkbox"
                       data-value={name}
                       onChange={updateFilters("organizationName")}
-                      defaultChecked={filters?.organizationName?.includes(name)}
+                      defaultChecked={filtersApplied?.organizationName?.includes(
+                        name,
+                      )}
                     />
                     {name}
                   </div>
@@ -573,7 +575,7 @@ export default function OrganizationsListPage(props: any) {
                     <input
                       type="checkbox"
                       data-value={email}
-                      defaultChecked={filters?.orgPrimaryEmailId?.includes(
+                      defaultChecked={filtersApplied?.orgPrimaryEmailId?.includes(
                         email,
                       )}
                       onChange={updateFilters("orgPrimaryEmailId")}

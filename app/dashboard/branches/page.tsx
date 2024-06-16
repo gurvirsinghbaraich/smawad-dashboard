@@ -84,6 +84,10 @@ export default function BranchesListPage(props: any) {
 
   // Filters
   const [filters, setFilters] = useState<Record<string, Array<any>>>({});
+
+  const [filtersApplied, setFiltersApplied] = useState<
+    Record<string, Array<any>>
+  >({});
   const [filtersDataset, setFiltersDataset] = useState<
     Record<string, Array<any>>
   >({});
@@ -152,7 +156,17 @@ export default function BranchesListPage(props: any) {
     // the data property contain the branches
     // and the total count for branches.
     if (response?.data) {
-      if (response.data?.orgBranches && response.data?.count) {
+      setFiltersApplied(filters);
+
+      console.log(response.data);
+
+      if (
+        Array.isArray(response.data?.orgBranches) &&
+        response.data?.orgBranches.length <= 0
+      ) {
+        setTotal(0);
+        setBranches([]);
+      } else if (response.data?.orgBranches && response.data?.count) {
         setTotal(Number(response.data.count));
         setBranches(response.data.orgBranches);
 
@@ -495,10 +509,20 @@ export default function BranchesListPage(props: any) {
         {/* Button to trigger export action */}
         <ExportButton toCSV={toCSV} toExcel={toExcel} />
 
-        <FiltersButton onSave={onSave}>
+        <FiltersButton
+          applied={
+            Object.values(filtersApplied).filter((v) => v.length > 0).length
+          }
+          onSave={onSave}
+        >
           <Accordion type="single" collapsible className="mx-2 mb-2 w-[290px]">
             <AccordionItem value="branch-name">
-              <AccordionTrigger>Branch Names</AccordionTrigger>
+              <AccordionTrigger>
+                Branch Names{" "}
+                {filtersApplied?.branchName?.length > 0 && (
+                  <>({filtersApplied?.branchName?.length})</>
+                )}
+              </AccordionTrigger>
               <AccordionContent>
                 {unique(
                   filtersDataset.branches?.map(
@@ -509,7 +533,9 @@ export default function BranchesListPage(props: any) {
                     <input
                       type="checkbox"
                       data-value={name}
-                      defaultChecked={false}
+                      defaultChecked={filtersApplied?.branchName?.includes(
+                        name,
+                      )}
                       onChange={updateFilters("branchName")}
                     />
                     {name}
@@ -519,7 +545,12 @@ export default function BranchesListPage(props: any) {
             </AccordionItem>
 
             <AccordionItem value="organization-name">
-              <AccordionTrigger>Organization Names</AccordionTrigger>
+              <AccordionTrigger>
+                Organization Names{" "}
+                {filtersApplied?.organizationName?.length > 0 && (
+                  <>({filtersApplied?.organizationName?.length})</>
+                )}
+              </AccordionTrigger>
               <AccordionContent>
                 {unique(
                   filtersDataset.branches?.map(
@@ -530,7 +561,9 @@ export default function BranchesListPage(props: any) {
                     <input
                       type="checkbox"
                       data-value={name}
-                      defaultChecked={false}
+                      defaultChecked={filtersApplied?.organizationName?.includes(
+                        name,
+                      )}
                       onChange={updateFilters("organizationName")}
                     />
                     {name}
@@ -540,7 +573,12 @@ export default function BranchesListPage(props: any) {
             </AccordionItem>
 
             <AccordionItem value="branch-type">
-              <AccordionTrigger>Branch Type</AccordionTrigger>
+              <AccordionTrigger>
+                Branch Type{" "}
+                {filtersApplied?.branchType?.length > 0 && (
+                  <>({filtersApplied?.branchType?.length})</>
+                )}
+              </AccordionTrigger>
               <AccordionContent>
                 {unique(
                   filtersDataset.branches?.map(
@@ -551,7 +589,9 @@ export default function BranchesListPage(props: any) {
                     <input
                       type="checkbox"
                       data-value={name}
-                      defaultChecked={false}
+                      defaultChecked={filtersApplied?.branchType?.includes(
+                        name,
+                      )}
                       onChange={updateFilters("branchType")}
                     />
                     {name}
@@ -619,7 +659,9 @@ export default function BranchesListPage(props: any) {
                     <Checkbox />
                   </div>
                 </td>
-                <td>Loading Records...</td>
+                <td>
+                  {total == 0 ? "No Records Found..." : "Loading Records..."}
+                </td>
                 <td></td>
                 <td></td>
                 <td></td>
