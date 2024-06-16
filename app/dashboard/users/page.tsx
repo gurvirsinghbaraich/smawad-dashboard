@@ -2,6 +2,7 @@
 
 import ActionButton from "@/components/ActionButton";
 import ExportButton from "@/components/ExportButton";
+import FiltersButton from "@/components/FiltersButton";
 import ListingHeader from "@/components/ListingHeader";
 import PaginationContainer from "@/components/PaginationContainer";
 import QuickPreview from "@/components/QuickPreview";
@@ -9,6 +10,12 @@ import TableActions from "@/components/TableActions";
 import TableHeading from "@/components/TableHeading";
 import { csvToExcel } from "@/components/csvToExcel";
 import FormField from "@/components/forms/abstracts/FormField";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -20,7 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { fetchApi } from "@/lib/fetchApi";
 import { flatternArray } from "@/lib/flatternObject";
 import { handleError } from "@/lib/handleError";
-import { cn } from "@/lib/utils";
+import { cn, unique } from "@/lib/utils";
 import {
   AlertStatus,
   useAppendAlertToQueue,
@@ -30,7 +37,7 @@ import { asBlob, generateCsv, mkConfig } from "export-to-csv";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useLayoutEffect, useState } from "react";
+import { ChangeEvent, useEffect, useLayoutEffect, useState } from "react";
 
 export default function UsersListPage(props: any) {
   // Getting the router.
@@ -77,6 +84,16 @@ export default function UsersListPage(props: any) {
   // Boolean value to control the quick preview container
   const [quickPreviewOpen, setQuickPreviewOpen] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<any>();
+
+  // Filters
+  const [filters, setFilters] = useState<Record<string, Array<any>>>({});
+
+  const [filtersApplied, setFiltersApplied] = useState<
+    Record<string, Array<any>>
+  >({});
+  const [filtersDataset, setFiltersDataset] = useState<
+    Record<string, Array<any>>
+  >({});
 
   // Boolean value to control the delete action
   const [isDeletingUser, setIsDeletingUser] = useState<boolean>(false);
@@ -126,6 +143,10 @@ export default function UsersListPage(props: any) {
       requestQuery.set("orderBy", fieldName);
     }
 
+    if (Object.keys(filters).length > 0) {
+      requestQuery.set("filters", JSON.stringify(filters));
+    }
+
     // Constructing an URL that points to users endpoint.
     const usersEndpoint = "/api/users?" + requestQuery.toString();
 
@@ -139,13 +160,21 @@ export default function UsersListPage(props: any) {
     // the data property contain the users
     // and the total count for users.
     if (response?.data) {
-      if (response.data?.users && response.data?.total) {
+      setFiltersApplied(filters);
+
+      if (
+        Array.isArray(response.data?.users) &&
+        response.data.users.length <= 0
+      ) {
+        setTotal(0);
+        setUsers([]);
+      } else if (response.data?.users && response.data?.total) {
         setTotal(Number(response.data.total));
         setUsers(response.data.users);
-
-        // Indication that the records have been loaded
-        setLoading(false);
       }
+
+      // Indication that the records have been loaded
+      setLoading(false);
     } else {
       // Unable to get the records from the server.
       appendAlertToQueue(
@@ -169,6 +198,26 @@ export default function UsersListPage(props: any) {
       }
     };
   }
+
+  const fetchFilters = async function () {
+    const response = await fetchApi("/api/filters/users");
+
+    if (response?.data?.users) {
+      setFiltersDataset(response.data);
+    }
+  };
+
+  useLayoutEffect(function () {
+    fetchFilters();
+  }, []);
+
+  useEffect(
+    function () {
+      setCurrentPage(1);
+    },
+    [sortingColumn, sortingOrder],
+  );
+
   // Before the first render of the component
   // Send the request to the backend for data.
   useLayoutEffect(
@@ -200,6 +249,29 @@ export default function UsersListPage(props: any) {
     },
     [currentPage, searchValue, sortingOrder, sortingColumn],
   );
+
+  const updateFilters =
+    (key: string) => (event: ChangeEvent<HTMLInputElement>) => {
+      const filtersCopy = filters;
+      let filtersKeyCopy = filters[key] ?? [];
+
+      if (event.currentTarget.checked) {
+        filtersKeyCopy.push(event.currentTarget.getAttribute("data-value"));
+      } else {
+        filtersKeyCopy = filtersKeyCopy.filter(
+          (value) => value != event.currentTarget.getAttribute("data-value"),
+        );
+      }
+
+      filtersCopy[key] = filtersKeyCopy;
+      setFilters(filtersCopy);
+    };
+
+  const onSave = function () {
+    let controller = new AbortController();
+    setAbortController(controller);
+    fetchUsers(controller);
+  };
 
   // Function responsible for exporting the users in .csv format
   const getDataToExport = async function () {
@@ -428,6 +500,113 @@ export default function UsersListPage(props: any) {
         {/* Button to trigger export action */}
         <ExportButton toCSV={toCSV} toExcel={toExcel} />
 
+        <FiltersButton
+          onSave={onSave}
+          applied={
+            Object.values(filtersApplied).filter((v) => v.length > 0).length
+          }
+        >
+          <Accordion type="single" collapsible className="mx-2 mb-2 w-[290px]">
+            <AccordionItem value="first-name">
+              <AccordionTrigger>
+                First Names{" "}
+                {filtersApplied?.firstName?.length > 0 && (
+                  <>({filtersApplied?.firstName?.length})</>
+                )}
+              </AccordionTrigger>
+              <AccordionContent>
+                {unique(
+                  filtersDataset.users?.map(({ firstName }) => firstName),
+                ).map((name, index) => (
+                  <div className="flex gap-2 p-1" key={index + name}>
+                    <input
+                      type="checkbox"
+                      data-value={name}
+                      defaultChecked={filtersApplied?.firstName?.includes(name)}
+                      onChange={updateFilters("firstName")}
+                    />
+                    {name}
+                  </div>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="last-name">
+              <AccordionTrigger>
+                Last Names{" "}
+                {filtersApplied?.lastName?.length > 0 && (
+                  <>({filtersApplied?.lastName?.length})</>
+                )}
+              </AccordionTrigger>
+              <AccordionContent>
+                {unique(
+                  filtersDataset.users?.map(({ lastName }) => lastName),
+                ).map((name, index) => (
+                  <div className="flex gap-2 p-1" key={index + name}>
+                    <input
+                      type="checkbox"
+                      data-value={name}
+                      defaultChecked={filtersApplied?.lastName?.includes(name)}
+                      onChange={updateFilters("lastName")}
+                    />
+                    {name}
+                  </div>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="email">
+              <AccordionTrigger>
+                Email{" "}
+                {filtersApplied?.email?.length > 0 && (
+                  <>({filtersApplied?.email?.length})</>
+                )}
+              </AccordionTrigger>
+              <AccordionContent>
+                {unique(filtersDataset.users?.map(({ email }) => email)).map(
+                  (name, index) => (
+                    <div className="flex gap-2 p-1" key={index + name}>
+                      <input
+                        type="checkbox"
+                        data-value={name}
+                        defaultChecked={filtersApplied?.email?.includes(name)}
+                        onChange={updateFilters("email")}
+                      />
+                      {name}
+                    </div>
+                  ),
+                )}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="Phone Number">
+              <AccordionTrigger>
+                Phone Number{" "}
+                {filtersApplied?.phoneNumber?.length > 0 && (
+                  <>({filtersApplied?.phoneNumber?.length})</>
+                )}
+              </AccordionTrigger>
+              <AccordionContent>
+                {unique(
+                  filtersDataset.users?.map(({ phoneNumber }) => phoneNumber),
+                ).map((name, index) => (
+                  <div className="flex gap-2 p-1" key={index + name}>
+                    <input
+                      type="checkbox"
+                      data-value={name}
+                      defaultChecked={filtersApplied?.phoneNumber?.includes(
+                        name,
+                      )}
+                      onChange={updateFilters("phoneNumber")}
+                    />
+                    {name}
+                  </div>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </FiltersButton>
+
         {/* Action button to create a new user */}
         <ActionButton
           href={"/dashboard/users/create"}
@@ -493,7 +672,9 @@ export default function UsersListPage(props: any) {
                     <Checkbox />
                   </div>
                 </td>
-                <td>Loading Records...</td>
+                <td>
+                  {total === 0 ? "No Records Found..." : "Loading Records..."}
+                </td>
                 <td></td>
                 <td></td>
                 <td></td>
